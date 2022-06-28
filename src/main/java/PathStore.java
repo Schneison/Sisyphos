@@ -5,17 +5,19 @@ import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
+/**
+ * A c
+ */
 public class PathStore {
-    private final Map<Point, Path> pathToFactory;
+    private final Map<Point, Path> factories;
     private final Map<Point, List<Path>> neighbors;
     private final Map<PointPair, Path> allPaths;
-    //private final Map<>
     private final TimeLookup timeLookup;
     private final World world;
 
     public PathStore(World world, PathCreator pathCreator, Config config) {
         this.world = world;
-        this.pathToFactory = new HashMap<>();
+        this.factories = new HashMap<>();
         this.neighbors = new HashMap<>();
         this.allPaths = new HashMap<>();
 
@@ -39,7 +41,7 @@ public class PathStore {
                     }
                     timeLookup.setFactory(pos, deliveryPath.getTimeCost());
                     neighbors.put(pos, validNeighbors);
-                    pathToFactory.put(pos, deliveryPath);
+                    factories.put(pos, deliveryPath);
                 }
             }
         }
@@ -80,15 +82,7 @@ public class PathStore {
     }
 
     public Path getPathToFactory(Point p) {
-        return pathToFactory.get(p);
-    }
-
-    public Path getPathFromFactory(Point p) {
-        Path path = pathToFactory.get(p);
-        if (path != null) {
-            return path.invert();
-        }
-        return null;
+        return factories.get(p);
     }
 
     public List<Path> getNeighborPaths(Point p) {
@@ -100,7 +94,7 @@ public class PathStore {
     }
 
     public Map<Point, Path> getFactoryPaths() {
-        return pathToFactory;
+        return factories;
     }
 
     public TimeLookup getLookup() {

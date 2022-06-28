@@ -5,13 +5,26 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
+/**
+ * Main class for pathfinding. This class used the dijkstra algorithm to find the shortest path to one or more locations
+ * on the field.
+ * <p>
+ * This is a very important dependency of this project. To take less time to find the many paths on the big field,
+ * these paths on the nodes on the field are cached and reused to minimize the time that is needed to calculate these
+ * paths.
+ */
 public class PathCreator {
     private final World world;
     private final Environment env;
     public static int lastGeneration = 0;
     private final int costMultiplier;
+    /**
+     * Cached nodes that are used to calculate the cost of each step.
+     */
     private final Node[][] cachedNodes;
-    public short[] costCount;
+    /**
+     * Position of the factory
+     */
     private final Point factoryPos;
     /**
      * Used so we don't have to allocate the memory every time
@@ -26,18 +39,6 @@ public class PathCreator {
         this.cachedNodes = new Node[world.getN()][world.getN()];
         this.factoryPos = factoryPos;
         this.cachedPos = new MutablePoint();
-        int maxCost = getHighestCost(world);
-        this.costCount = new short[maxCost + 1];
-    }
-
-    private static int getHighestCost(World world) {
-        int max = 0;
-        for (int x = 0; x < world.getN(); x++) {
-            for (int y = 0; y < world.getN(); y++) {
-                max = Math.max(world.getFieldTime(x, y), max);
-            }
-        }
-        return max;
     }
 
     private Node getOriginNode(Point point) {
@@ -48,9 +49,8 @@ public class PathCreator {
         Node cached = cachedNodes[point.getY()][point.getX()];
         if (cached == null) {
             int time = point.getTime(world);
-            short factor = ++costCount[time];
 
-            cached = new Node(point.toImmutable(), time, costMultiplier, factor);
+            cached = new Node(point.toImmutable(), time, costMultiplier);
             cachedNodes[point.getY()][point.getX()] = cached;
         }
         // Was already called by other root this run, only update if new root is better
@@ -100,7 +100,7 @@ public class PathCreator {
 //    }
 
     /**
-     * Tries to find the shortest path to one or more destinations.
+     * Tries to find the shortest path to one or more destinations using the dijkstra algorithm.
      *
      * @param <T>           The type of the returned type
      * @param startPoint    Start position of the graph
@@ -114,7 +114,7 @@ public class PathCreator {
      * @param defaultValue  The value that will be returned if the search ends with no valid destination
      * @return The value returned by the consumePath function if one was supplied.
      */
-    public <T> T findPath(
+    private  <T> T findPath(
             Position startPoint,
             Predicate<Point> isDestination,
             Predicate<Position> validNeighbor,
@@ -164,10 +164,25 @@ public class PathCreator {
         return defaultValue.get();
     }
 
+    /**
+     * Tries to find the path to all materials from the factory as the origin point.
+     *
+     * @return A list of the path to all material nodes.
+     */
     public List<Path> findPathsToMaterial() {
         return createPaths(factoryPos, (p) -> p.hasMaterials(world), world.getN() * 2, world.getN());
     }
 
+    /**
+     * Tries to find the path to as many destinations as the limit parameter allows.
+     *
+     * @param startPoint Origin of the path
+     * @param isDestination Tests if the given position is a valid destination.
+     * @param limit Limits the amount of paths, stops the search if this limit is reached.
+     * @param distanceLimit Limits the distance the algorithm searches for possible path nodes.
+     *
+     * @return A list of all found paths with a size from zero, if no paths were found, up to the limit.
+     */
     public List<Path> createPaths(Position startPoint, Predicate<Point> isDestination, int limit, int distanceLimit) {
         List<Path> paths = new ArrayList<>();
         findPath(startPoint, isDestination, (neighborPos) -> neighborPos.checkBounds(startPoint, distanceLimit), (p) -> {
@@ -188,20 +203,14 @@ public class PathCreator {
         return paths;
     }
 
-//    public Path createPath(World world, Position startPoint, Position destination, int expansionDivisor) {
-//        int expansion = 5 + world.getN() / expansionDivisor;
-//        int sizeX = Math.abs(startPoint.getX() - destination.getX());
-//        int sizeY = Math.abs(startPoint.getY() - destination.getY());
-//        int minX = Math.min(startPoint.getX(), destination.getX());
-//        int minY = Math.min(startPoint.getY(), destination.getY());
-//        int areaStartX = Math.max(minX - expansion, 0);
-//        int areaStartY = Math.max(minY - expansion, 0);
-//        int areaEndX = Math.min(minX + sizeX + expansion, world.getN());
-//        int areaEndY = Math.min(minY + sizeY + expansion, world.getN());
-//        lastGeneration = ++generation;
-//        return findPath(world, startPoint, destination::at, (neighborPos)->neighborPos.checkBounds(areaStartX, areaStartY, areaEndX, areaEndY), (p)->p, ()->null);
-//    }
-
+    /**
+     * Tries to find a path starting from the given origin position.
+     *
+     * @param startPoint Origin of the path
+     * @param isDestination Tests if the given position is a valid destination.
+     *
+     * @return The found path, {@code null} if none was found.
+     */
     public Path findPath(Position startPoint, Predicate<Point> isDestination) {
         lastGeneration = ++generation;
         return findPath(startPoint, isDestination, null, (p) -> p, () -> null);
@@ -209,7 +218,7 @@ public class PathCreator {
 
     /**
      * Creates a path starting at the given node and traversing the parent nodes until a node is found where the parent
-     * is null. THis position is the origin.
+     * is null. This position is the origin.
      */
     public Path createPath(Node node) {
         List<Path.Step> steps = new ArrayList<>();
@@ -224,19 +233,33 @@ public class PathCreator {
         return new Path(steps.toArray(new Path.Step[0]));
     }
 
+    /**
+     * Helper class which represents a position on the field. Used to store the cost of this position, which does not
+     * change in the lifetime of this program, and the accumulated cost of the current algorithm run.
+     */
     private static class Node implements Comparable<Node> {
+        /**
+         * Position on the field
+         */
         private final Point point;
+        /**
+         * Field cost
+         */
         private final int timeCost;
-        private int g;
-        private Node root;
         private final int m;
-        private final int factor;
+        /**
+         * Current cost up to this position, starting from the origin
+         */
+        private int g;
+        /**
+         * Root object, used to create the path if a destination is found.
+         */
+        private Node root;
 
-        public Node(Point point, int timeCost, int m, int factor) {
+        public Node(Point point, int timeCost, int m) {
             this.point = point;
             this.timeCost = timeCost;
             this.m = m;
-            this.factor = factor;
         }
 
         public void init(Node root) {
@@ -244,25 +267,20 @@ public class PathCreator {
             this.g = (root != null ? root.g : 0) + timeCost;
         }
 
-        public boolean tryUpdate(Node root) {
+        public void tryUpdate(Node root) {
             if (root.g + timeCost >= g) {
-                return false;
+                return;
             }
-            g = root.g + timeCost;
+            this.g = root.g + timeCost;
             this.root = root;
-            return true;
         }
 
         public Node getRoot() {
             return root;
         }
 
-        public int getG() {
-            return g;
-        }
-
         public int getCost() {
-            return (g) * m /*+ factor*/;
+            return (g) * m;
         }
 
         public int getTimeCost() {
@@ -278,6 +296,9 @@ public class PathCreator {
             return getCost() - o.getCost();
         }
 
+        /**
+         * Converts this node to a path step.
+         */
         public Path.Step toStep() {
             // Destination
             if (root == null) {
