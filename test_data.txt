@@ -1,0 +1,72 @@
+---------------------------------------------
+n =500
+Path Time: 1.325 min
+Cluster Time: 33.52 s
+Improvement: 10048
+Bundle Time: 675578
+Time total penalty
+Remaining materials: 0
+Time passed: 675578
+Time: 1:55
+
+Path Time: 4.073 min
+Cluster Time: 35.14 s
+Improvement: 9290
+Bundle Time: 676254
+Time total penalty
+Time total penalty
+Remaining materials: 0
+Time passed: 676254
+Time: 4:42
+------------------------------------
+n =1000
+
+Improvement: 10159
+Bundle Time: 2664783
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Remaining materials: 0
+Time passed: 2664783
+Time: 1:49
+
+Path Time: 1.442 min
+Cluster Time: 34.80 s
+Improvement: 11861
+Bundle Time: 2662990
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Remaining materials: 0
+Time passed: 2662990
+Time: 2:48
+
+Path Time: 1.926 min
+Cluster Time: 44.40 s
+Improvement: 13411
+Bundle Time: 2661594
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Remaining materials: 0
+Time passed: 2661594
+Time: 2:54
+--------------------------------------------
+Path Time: 38.09 s
+Cluster Time: 30.99 s
+Improvement: 10423
+Bundle Time: 2664350
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Time total penalty
+Remaining materials: 0
+Time passed: 2664350
+Time: 1:20
