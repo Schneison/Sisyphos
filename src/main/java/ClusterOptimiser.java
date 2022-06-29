@@ -2,21 +2,25 @@ import com.google.common.base.Stopwatch;
 
 import java.util.*;
 
+/**
+ * Optimises the clusters found by the {@link ClusterCompositor} beforehand. For the optimisation a genetic algorithm
+ * is used.
+ */
 public class ClusterOptimiser {
     private final Queue queue;
-    private final Set<State> dumps = new HashSet<>();
+    private final Deque<State> dumps = new ArrayDeque<>();
     private final Map<Point, Integer> clusterByPos;
     private final ClusterContainer[] clusters;
     private final PathStore store;
     private final State state;
 
-    public ClusterOptimiser(Set<Cluster> clusters, PathStore store) {
+    public ClusterOptimiser(Set<Cluster> clusters, Environment env) {
         this.clusterByPos = new HashMap<>();
         this.state = new State();
-        this.store = store;
+        this.store = env.getStore();
         final int[] id = {0};
         this.clusters = new ClusterContainer[clusters.size()];
-        clusters.stream().sorted(Cluster::compareTo).forEach((cluster)->{
+        clusters.stream().sorted(Cluster::compareTo).forEach(cluster->{
             this.clusters[id[0]] = new ClusterContainer(cluster, id[0]);
             for (Point p : cluster.getPoints()) {
                 clusterByPos.put(p, id[0]);
@@ -77,15 +81,18 @@ public class ClusterOptimiser {
         }
     }
 
-    public Set<Cluster> process(PathCreator creator,
-                                PathStore.Config config) {
+    /**
+     * Starts the optimisation.
+
+     * @param config Configuration used for pathfinding if any is needed.
+     *
+     * @return The optimised clusters
+     */
+    public Set<Cluster> process(PathStore.Config config) {
         Random rand = new Random(42);
         Stopwatch pathWatch = Stopwatch.createUnstarted();
         Stopwatch clusterWatch = Stopwatch.createUnstarted();
-        System.out.println("Start Optimiser");
-        Map<Integer, Integer> count = new HashMap<>();
-        Map<Integer, Integer> count2 = new HashMap<>();
-        Map<Integer, Integer> count3 = new HashMap<>();
+        Log.info("Start Optimiser");
         int factor = 0;
         o: for (int j = 0; j < 2200; j++) {
             ClusterContainer random = this.clusters[rand.nextInt(this.clusters.length)];
@@ -96,14 +103,12 @@ public class ClusterOptimiser {
             }
             Cluster cluster = random.getCluster();
             Set<ClusterContainer> containers = new HashSet<>();
-            Set<Cluster> clusters = new HashSet<>();
+            Set<Cluster> currentClusters = new HashSet<>();
             Set<Point> positions = new HashSet<>(Arrays.asList(cluster.getPoints()));
-            count3.compute(random.getId(), (i, c)->c == null ? 1 : c + 1);
             if (positions.size() % 3 != 0) {
                 continue;
             }
-            count2.compute(random.getId(), (i, c)->c == null ? 1 : c + 1);
-            clusters.add(cluster);
+            currentClusters.add(cluster);
             containers.add(random);
             List<Integer> neighbors = new ArrayList<>(random.getNeighbors());
             Collections.shuffle(neighbors, rand);
@@ -114,42 +119,49 @@ public class ClusterOptimiser {
                     // Cluster compliantly contained in other cluster, possibly 2 valued Material
                     continue;
                 }
-                clusters.add(cluster);
+                currentClusters.add(cluster);
                 containers.add(container);
                 //We don't look at 2 valued Materials or single routes
                 if (positions.size() % 3 != 0 || cluster.getPoints().length % 3 != 0) {
                     continue o;
                 }
-                count.compute(container.getId(), (i, c)->c == null ? 1 : c + 1);
                 if (positions.size() >= (12 + 3 * factor)) {
                     break;
                 }
             }
-            int originalTime = Cluster.sumChunkTime(clusters);
+            int originalTime = Cluster.sumChunkTime(currentClusters);
             Chunk bestChunk = null;
             int minTime = Integer.MAX_VALUE;
             pathWatch.start();
             OptimiserVariant variant = new OptimiserVariant(
-                    CompositorSeason.fromRange(store, positions, creator, config),
-                    clusters,
+                    CompositorSeason.fromRange(store, positions, config),
+                    currentClusters,
                     store
             );
             pathWatch.stop();
+            //Update Path finding time
             state.recordPath(pathWatch.toString());
             clusterWatch.start();
+
             for (int i = 0; i < 14; i++) {
+                //Create cluster Combination simulation
                 GeneticCluster geneticCluster = new GeneticCluster(150 + factor * 50, 0.025f, variant);
-                Genome g = geneticCluster.run(120 + factor * 60, rand);
-                Chunk result = new Chunk(variant.createClusters(g));
-                if (result.time < minTime) {
-                    minTime = result.time;
+                //Run simulation
+                Genome genome = geneticCluster.run(120 + factor * 60, rand);
+                Chunk result = new Chunk(variant.createClusters(genome));
+                //Check if the best found chunk is better that the already found one
+                if (result.getTime() < minTime) {
+                    minTime = result.getTime();
                     bestChunk = result;//-16249 - 6:10
                 }
             }
+            // Should only happen if every cluster combination has a time bigger that Integer.MAX_VALUE, which should
+            // be impossible
             if (bestChunk == null) {
                 throw new IllegalStateException();
             }
             clusterWatch.stop();
+            //Update Cluster time
             state.recordCluster(clusterWatch.toString());
 
             //Add to current state and update queue if we changed the clusters
@@ -160,13 +172,18 @@ public class ClusterOptimiser {
                 insertClusters(containers, bestChunk);
             }
 
+            //Check the state all 100 iterations
             if(j % 100 == 99){
+                State oldState = dumps.peekLast();
                 State dump = state.dump();
                 dump.print(j+1);
                 dumps.add(dump);
+                if(oldState != null && oldState.successes == dump.successes){
+                    break;
+                }
             }
         }
-        System.out.println("End Optimiser");
+        Log.info("End Optimiser");
         Set<Cluster> result = new HashSet<>();
         for (ClusterContainer container : clusters) {
             result.add(container.getCluster());
@@ -179,7 +196,7 @@ public class ClusterOptimiser {
      */
     private void insertClusters(Collection<ClusterContainer> containers, Chunk chunk){
         Set<Point> updatePositions = new HashSet<>();
-        Iterator<Cluster> iterator = chunk.clusters.iterator();
+        Iterator<Cluster> iterator = chunk.getClusters().iterator();
         for (ClusterContainer oldContainer : containers.stream().sorted().toList()) {
             updatePositions.addAll(oldContainer.getNeighborPositions());
             updatePositions.addAll(List.of(oldContainer.getCluster().getPoints()));
@@ -189,6 +206,9 @@ public class ClusterOptimiser {
         updateNeighbors(updatePositions);
     }
 
+    /**
+     * Helper class to summarise the result of the current optimisation.
+     */
     private static class State {
         private String pathTime;
         private String clusterTime;
@@ -231,20 +251,36 @@ public class ClusterOptimiser {
             return false;
         }
 
+        /**
+         * Increase the fail count and add the given expense.
+         *
+         * @param expense Time difference between the found chunk and the old one.
+         */
         private void fail(int expense){
             this.expense+=expense;
             fails++;
         }
 
+        /**
+         * Increase the tie count.
+         */
         private void tie(){
             ties++;
         }
 
+        /**
+         * Increase the success count and add the given profit.
+         *
+         * @param profit Time difference between the found chunk and the old one.
+         */
         private void success(int profit){
             successes++;
             improvement+=profit;
         }
 
+        /**
+         * Creates a copy of the current state.
+         */
         public State dump(){
             return new State(
                     pathTime,
@@ -257,6 +293,11 @@ public class ClusterOptimiser {
             );
         }
 
+        /**
+         * Prints this state to the console.
+         *
+         * @param n Current index of optimisation
+         */
         public void print(int n) {
             StringBuilder builder = new StringBuilder();
             builder.append(String.format(
@@ -274,13 +315,11 @@ public class ClusterOptimiser {
             builder.append("Improvement : ").append(improvement).append("\n");
             builder.append("Expense     : ").append(expense).append("\n");
             builder.append("/////////////////////////////////////////////");
-            System.out.println(builder);
+            Log.info(builder);
         }
     }
 
-    /**
-     * Contains the clusters on this field.
-     */
+
     private static class ClusterContainer implements Comparable<ClusterContainer>{
         private final int id;
         private final Set<Point> neighborPositions;
@@ -308,6 +347,19 @@ public class ClusterOptimiser {
         @Override
         public int compareTo(ClusterContainer o) {
             return cluster.compareTo(o.getCluster());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ClusterContainer)) return false;
+            ClusterContainer container = (ClusterContainer) o;
+            return getId() == container.getId() && getCluster().equals(container.getCluster());
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getId(), getCluster());
         }
 
         public int getId() {
@@ -356,7 +408,7 @@ public class ClusterOptimiser {
                 result = queue.peek();
             }
             if(queue.isEmpty()){
-                queue.addAll(next.stream().map((id) -> optimiser.clusters[id]).toList());
+                queue.addAll(next.stream().map(id -> optimiser.clusters[id]).toList());
                 next.clear();
             }
             return queue.poll();
@@ -386,6 +438,9 @@ public class ClusterOptimiser {
             }
         }
 
+        /**
+         * Create the clusters from the given genetic data.
+         */
         public Set<Cluster> createClusters(Genome genome) {
             Set<Cluster> elements = new HashSet<>();
             int[] chromosomes = genome.getChromosomes();
@@ -402,12 +457,23 @@ public class ClusterOptimiser {
             return elements;
         }
 
+        /**
+         * Retrieves the time from the first index to the second index.
+         *
+         * @param from Index of the first position
+         * @param to Index of the second position
+         */
         public int getTime(int from, int to, Genome genome) {
             int a = genome.getChromosomes()[from];
             int b = genome.getChromosomes()[to];
             return lookup.getEdge(positionByIndex[a], positionByIndex[b]);
         }
 
+        /**
+         * Retrieves the time from the index to the factory.
+         *
+         * @param pos Index of the material position
+         */
         public int getFactoryTime(int pos, Genome genome) {
             int a = genome.getChromosomes()[pos];
             return lookup.toFactory(positionByIndex[a]);
@@ -446,6 +512,9 @@ public class ClusterOptimiser {
                             variant.getFactoryTime(index + 2, genome);
                 }
                 time += cache[z];
+            }
+            if(time == 0){
+                throw new IllegalStateException();
             }
             return 1f / time;
         }

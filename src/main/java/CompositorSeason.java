@@ -11,18 +11,16 @@ public class CompositorSeason {
 
     public static CompositorSeason fromSeason(CompositorSeason previous,
                                               PathStore store,
-                                              PathCreator creator,
                                               PathStore.Config config
     ) {
         return new CompositorSeason(
                 previous.remainingPaths,
-                store.searchNeighbors(previous.remainingPaths, creator, config)
+                store.searchNeighbors(previous.remainingPaths.keySet(), config)
         );
     }
 
     public static CompositorSeason fromRange(PathStore store,
                                              Set<Point> range,
-                                             PathCreator creator,
                                              PathStore.Config config
     ) {
         Map<Point, Path> remaining = new HashMap<>();
@@ -31,7 +29,7 @@ public class CompositorSeason {
         }
         return new CompositorSeason(
                 remaining,
-                store.searchNeighbors(remaining, creator, config)
+                store.searchNeighbors(range, config)
         );
     }
 

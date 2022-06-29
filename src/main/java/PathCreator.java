@@ -15,7 +15,6 @@ import java.util.function.Supplier;
  */
 public class PathCreator {
     private final World world;
-    private final Environment env;
     public static int lastGeneration = 0;
     private final int costMultiplier;
     /**
@@ -34,7 +33,6 @@ public class PathCreator {
 
     public PathCreator(Environment env, Point factoryPos) {
         this.world = env.getWorld();
-        this.env = env;
         this.costMultiplier = world.getN() * world.getN();
         this.cachedNodes = new Node[world.getN()][world.getN()];
         this.factoryPos = factoryPos;
@@ -170,7 +168,7 @@ public class PathCreator {
      * @return A list of the path to all material nodes.
      */
     public List<Path> findPathsToMaterial() {
-        return createPaths(factoryPos, (p) -> p.hasMaterials(world), world.getN() * 2, world.getN());
+        return createPaths(factoryPos, p -> p.hasMaterials(world), world.getN() * 2, world.getN());
     }
 
     /**
@@ -185,7 +183,7 @@ public class PathCreator {
      */
     public List<Path> createPaths(Position startPoint, Predicate<Point> isDestination, int limit, int distanceLimit) {
         List<Path> paths = new ArrayList<>();
-        findPath(startPoint, isDestination, (neighborPos) -> neighborPos.checkBounds(startPoint, distanceLimit), (p) -> {
+        findPath(startPoint, isDestination, neighborPos -> neighborPos.checkBounds(startPoint, distanceLimit), p -> {
             paths.add(p);
             return paths.size() >= limit ? paths : null;
         }, () -> paths);
@@ -196,7 +194,7 @@ public class PathCreator {
         int expansion = 5 + world.getN() / expansionDivisor;
         Bounds bounds = Bounds.create(world, expansion, destinations);
         List<Path> paths = new ArrayList<>();
-        findPath(startPoint, isDestination, bounds::contains, (p) -> {
+        findPath(startPoint, isDestination, bounds::contains, p -> {
             paths.add(p);
             return paths.size() >= limit ? paths : null;
         }, () -> paths);
@@ -213,7 +211,7 @@ public class PathCreator {
      */
     public Path findPath(Position startPoint, Predicate<Point> isDestination) {
         lastGeneration = ++generation;
-        return findPath(startPoint, isDestination, null, (p) -> p, () -> null);
+        return findPath(startPoint, isDestination, null, p -> p, () -> null);
     }
 
     /**

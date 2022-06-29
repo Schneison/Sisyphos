@@ -87,6 +87,13 @@ public class Path implements Comparable<Path> {
         return destination.contains(robot);
     }
 
+    /**
+     * Amount of steps in this path.
+     */
+    public int getStepCount() {
+        return steps.length;
+    }
+
     public static class Step {
         private final Point point;
         // TODO: Remove possible value null, wtf
@@ -104,7 +111,7 @@ public class Path implements Comparable<Path> {
         }
 
         public Step invert() {
-            return new Step(point, direction != null ? direction.invert() : null, time);
+            return new Step(point, direction != null ? direction.opposite() : null, time);
         }
 
         public int getMaterial(World world) {

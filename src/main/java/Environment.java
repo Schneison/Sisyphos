@@ -3,6 +3,10 @@ import robot.Robot;
 import robot.World;
 
 public class Environment {
+    public static final boolean LOGGING = true;
+    public static final boolean DEBUG = false;
+    public static final int CLUSTER_FACTOR = 31;
+
     private final World world;
     private final Robot robot;
     private final Factory factory;
@@ -19,7 +23,7 @@ public class Environment {
     }
 
     public void setupStore(PathStore.Config config){
-        store = new PathStore(world, creator, config);
+        store = new PathStore(this, config);
     }
 
     public Analytics getAnalytics() {

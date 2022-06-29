@@ -1,13 +1,24 @@
 import robot.World;
 
 import java.util.Collection;
+import java.util.function.Predicate;
 
+/**
+ * Helper class to construct a rectangle.
+ */
 public class Bounds {
     private final int startX;
     private final int startY;
     private final int endX;
     private final int endY;
 
+    /**
+     * Construct a rectangle that contains all given positions.
+     * <p>
+     * @param world The world instance to determine the size of the field.
+     * @param expansion Amount by that the rectangle is expanded.
+     * @param positions A collection of positions that define the rectangle
+     */
     public static Bounds create(World world, int expansion, Collection<Point> positions) {
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
@@ -33,6 +44,9 @@ public class Bounds {
         this.endY = endY;
     }
 
+    /**
+     * Checks if the given position is located in the rectangle.
+     */
     public boolean contains(Position p) {
         return p.getX() >= startX &&
                 p.getX() <= endX &&

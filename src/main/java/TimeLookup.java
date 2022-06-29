@@ -1,11 +1,10 @@
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 public class TimeLookup {
     private final int[] factory;
     private final int[][] edges;
-    private int index;
+    private int posIndex;
     private final Map<Point, Integer> pointToIndex;
 
     public TimeLookup(int n) {
@@ -15,20 +14,14 @@ public class TimeLookup {
     }
 
     public void setEdge(Point from, Point to, int time) {
-        int a = pointToIndex.computeIfAbsent(from, (p) -> index++);
-        int b = pointToIndex.computeIfAbsent(to, (p) -> index++);
-        int tA = edges[a][b];
-        int tB = edges[b][a];
-        if (tA != tB) {
-            System.out.println();
-        }
+        int a = pointToIndex.computeIfAbsent(from, p -> posIndex++);
+        int b = pointToIndex.computeIfAbsent(to, p -> posIndex++);
         edges[a][b] = time;
-        edges[b][a] = time;
     }
 
 
     public void setFactory(Point pos, int time) {
-        int i = pointToIndex.computeIfAbsent(pos, (p) -> index++);
+        int i = pointToIndex.computeIfAbsent(pos, p -> posIndex++);
         factory[i] = time;
     }
 

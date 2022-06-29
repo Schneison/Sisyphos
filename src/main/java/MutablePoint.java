@@ -1,3 +1,5 @@
+import java.util.Objects;
+
 /**
  * Implementation of a mutable 2d position.
  * <p>
@@ -16,12 +18,14 @@ public class MutablePoint extends Position {
         this.y = y;
     }
 
-    public void setX(int x) {
-        this.x = x;
+    @Override
+    public boolean equals(Object o) {
+        return super.equals(o);
     }
 
-    public void setY(int y) {
-        this.y = y;
+    @Override
+    public int hashCode() {
+        return Objects.hash(super.hashCode(), getX(), getY());
     }
 
     public void set(Position pos) {

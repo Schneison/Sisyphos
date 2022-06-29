@@ -23,15 +23,6 @@ public class Genome {
         );
     }
 
-    //DM
-    private void displacementMutation(Random rand) {
-
-    }
-
-    // IVM
-    private void inversionMutation(Random rand) {
-    }
-
     // ISM
     private void insertionMutation(Random rand) {
         int a = rand.nextInt(0, chromosomes.length);
@@ -51,8 +42,8 @@ public class Genome {
 
     private static final int OFFSET = 0;
     //TODO: replace with bit shift and bit mask
-    private final static BitSet lookupA = new BitSet(16);
-    private final static BitSet lookupB = new BitSet(16);
+    private static final BitSet lookupA = new BitSet(16);
+    private static final BitSet lookupB = new BitSet(16);
     public void orderedCrossover(Genome other, Random rand, Genome[] offsprings) {
         lookupA.clear();
         lookupB.clear();

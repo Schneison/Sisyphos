@@ -4,7 +4,7 @@ import robot.World;
 import java.util.*;
 
 public class Cluster implements Comparable<Cluster> {
-    public static int factor = 4;
+    public static final int DISTANCE_FACTOR = Environment.CLUSTER_FACTOR;
     //0 - fromFactory
     // between - materials
     //length - 1 - toFactory
@@ -64,7 +64,7 @@ public class Cluster implements Comparable<Cluster> {
     }
 
     public int getCost() {
-        return Math.abs(getTotalTime() + distance * factor);
+        return Math.abs(getTotalTime() + distance * DISTANCE_FACTOR);
     }
 
     @Override

@@ -5,7 +5,7 @@ public abstract class GeneticSystem {
     protected final Population population;
     protected final int genomeSize;
 
-    public GeneticSystem(int amount, int genomeSize, float elitism) {
+    protected GeneticSystem(int amount, int genomeSize, float elitism) {
         this.genomeSize = genomeSize;
         this.population = new Population(amount, (int) (amount * elitism));
     }
@@ -32,9 +32,9 @@ public abstract class GeneticSystem {
     protected abstract float getFitness(Genome genome);
 
     private static class Population {
-        public final int elitismCount;
-        public Entity[] entities;
-        public double fitnessSum;
+        private final int elitismCount;
+        private Entity[] entities;
+        private double fitnessSum;
 
         public Population(int amount, int elitismCount) {
             this.entities = new Entity[amount];
@@ -66,7 +66,7 @@ public abstract class GeneticSystem {
 
         public void nextGeneration(Random rand) {
             Entity[] newEntities = new Entity[entities.length];
-            PriorityQueue<ValueKeyPair<Entity>> bestEntities = calculateFitnessSum();
+            calculateFitnessSum();
             for (int i = 0; i < elitismCount; i++) {
                 ValueKeyPair<Entity> pair = bestEntities.poll();
                 if (pair == null) {

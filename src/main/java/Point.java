@@ -11,6 +11,11 @@ public class Point extends Position {
     }
 
     @Override
+    public boolean equals(Object o) {
+        return super.equals(o);
+    }
+
+    @Override
     public Point offset(int x, int y) {
         return new Point(this.x + x, this.y + y);
     }

@@ -1,9 +1,12 @@
+/**
+ * Defines all four possible directions on the field.
+ */
 public enum Direction {
     LEFT, RIGHT, DOWN, UP;
 
-    public static final Direction[] DIRECTIONS = values();
+    static final Direction[] DIRECTIONS = values();
 
-    public Direction invert() {
+    public Direction opposite() {
         return switch (this) {
             case DOWN -> UP;
             case LEFT -> RIGHT;

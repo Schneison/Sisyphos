@@ -6,22 +6,25 @@ import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
 /**
- * A c
+ * Center collection which can be used to get the paths to a material on the field or from a material to the factory and
+ * vise versa.
  */
 public class PathStore {
     private final Map<Point, Path> factories;
     private final Map<Point, List<Path>> neighbors;
     private final Map<PointPair, Path> allPaths;
     private final TimeLookup timeLookup;
+    private final PathCreator creator;
     private final World world;
 
-    public PathStore(World world, PathCreator pathCreator, Config config) {
-        this.world = world;
+    public PathStore(Environment env, Config config) {
+        this.world = env.getWorld();
+        this.creator = env.getCreator();
         this.factories = new HashMap<>();
         this.neighbors = new HashMap<>();
         this.allPaths = new HashMap<>();
 
-        List<Path> pathsToMaterial = pathCreator.findPathsToMaterial();
+        List<Path> pathsToMaterial = creator.findPathsToMaterial();
         Map<Point, Path> materialPaths = pathsToMaterial.stream().collect(Collectors.toMap(Path::getDestinationPos, Function.identity()));
         this.timeLookup = new TimeLookup(pathsToMaterial.size());
         for (int x = 0; x < world.getN(); x++) {
@@ -29,14 +32,16 @@ public class PathStore {
                 if (world.getFieldMaterials(x, y) > 0) {
                     Point pos = new Point(x, y);
                     Path deliveryPath = materialPaths.get(pos).invert();
-                    List<Path> validNeighbors = pathCreator.createPaths(
-                            pos, (p) -> p.hasMaterials(world) && !p.at(pos),
+                    List<Path> validNeighbors = creator.createPaths(
+                            pos, p -> p.hasMaterials(world) && !p.at(pos),
                             config.getNeighborLimit(),
                             config.getDistanceLimit(world.getN())
                     );
                     for (Path p : validNeighbors) {
-                        timeLookup.setEdge(p.getDestinationPos(), pos, p.getTimeCost());
-                        allPaths.putIfAbsent(new PointPair(p.getDestinationPos(), pos), p.invert());
+                        Path inverted = p.invert();
+                        timeLookup.setEdge(p.getDestinationPos(), pos, inverted.getTimeCost());
+                        timeLookup.setEdge(pos, p.getDestinationPos(), p.getTimeCost());
+                        allPaths.putIfAbsent(new PointPair(p.getDestinationPos(), pos), inverted);
                         allPaths.putIfAbsent(new PointPair(pos, p.getDestinationPos()), p);
                     }
                     timeLookup.setFactory(pos, deliveryPath.getTimeCost());
@@ -47,52 +52,73 @@ public class PathStore {
         }
     }
 
-    public Map<Point, List<Path>> searchNeighbors(Map<Point, Path> remainingPaths, PathCreator pathCreator, Config config) {
+    /**
+     * Searches the path to the neighbors of the given positions.
+     *
+     * @param rang All position to find the neighbors for
+     * @param config Configuration of pathfinding
+     */
+    public Map<Point, List<Path>> searchNeighbors(Collection<Point> rang, Config config) {
         Map<Point, List<Path>> remainingNeighbors = new HashMap<>();
-        for (Point pos : remainingPaths.keySet()) {
-            Set<Point> remaining = new HashSet<>(remainingPaths.keySet());
+        for (Point pos : rang) {
+            Set<Point> remaining = new HashSet<>(rang);
             remaining.remove(pos);
-            List<Path> neighbors = new ArrayList<>();
+            List<Path> neighborPaths = new ArrayList<>();
             Iterator<Point> iterator = remaining.iterator();
             Point value;
             while (iterator.hasNext()) {
                 value = iterator.next();
                 Path neighbor = allPaths.get(new PointPair(pos, value));
                 if(neighbor != null) {
-                    neighbors.add(neighbor);
+                    neighborPaths.add(neighbor);
                     iterator.remove();
                 }
             }
             remaining.add(pos);
             int limit = Math.min(config.getNeighborLimit(), remaining.size() - 1);
-            neighbors.addAll(pathCreator.createPaths(
-                    pos, (p) -> p.hasMaterials(world) && !p.at(pos) && remaining.contains(p),
+            neighborPaths.addAll(creator.createPaths(
+                    pos, p -> p.hasMaterials(world) && !p.at(pos) && remaining.contains(p),
                     remaining,
                     limit,
                     config.getDistanceLimit(world.getN())
             ));
-            for (Path p : neighbors) {
-                timeLookup.setEdge(p.getDestinationPos(), pos, p.getTimeCost());
-                allPaths.putIfAbsent(new PointPair(p.getDestinationPos(), pos), p.invert());
+            for (Path p : neighborPaths) {
+                Path inverted = p.invert();
+                timeLookup.setEdge(p.getDestinationPos(), pos, inverted.getTimeCost());
+                timeLookup.setEdge(pos, p.getDestinationPos(), p.getTimeCost());
+                allPaths.putIfAbsent(new PointPair(p.getDestinationPos(), pos), inverted);
                 allPaths.putIfAbsent(new PointPair(pos, p.getDestinationPos()), p);
             }
-            remainingNeighbors.put(pos, neighbors);
+            remainingNeighbors.put(pos, neighborPaths);
         }
         return remainingNeighbors;
     }
 
+    /**
+     * Returns the path from the given position to the factory.
+     */
     public Path getPathToFactory(Point p) {
         return factories.get(p);
     }
 
+    /**
+     * Returns the path from the given position to a certain amount of neighbors.
+     * <p>The upper limit of this amount is defined by {@link Config#getNeighborLimit()}.
+     */
     public List<Path> getNeighborPaths(Point p) {
         return neighbors.get(p);
     }
 
+    /**
+     * Returns a map with all cached paths to the neighbors of one position.
+     */
     public Map<Point, List<Path>> getAllNeighbors() {
         return neighbors;
     }
 
+    /**
+     * Returns a map with all cached paths to the factory from one position.
+     */
     public Map<Point, Path> getFactoryPaths() {
         return factories;
     }
@@ -101,6 +127,9 @@ public class PathStore {
         return timeLookup;
     }
 
+    /**
+     * Helper class which can be used to set parameters of the current cycle of path finding.
+     */
     public static final class Config {
         private final IntUnaryOperator distanceLimit;
         private final int neighbors;
@@ -110,15 +139,25 @@ public class PathStore {
             this.neighbors = neighbors;
         }
 
+        /**
+         * Limits the distance from the origin to nodes that will be visited by the algorithm, used to minimize the time
+         */
         public int getDistanceLimit(int n){
             return distanceLimit.applyAsInt(n);
         }
 
+        /**
+         * Limits the amount of neighbors that are cached in the current cycle of the path finding.
+         */
         public int getNeighborLimit(){
             return neighbors;
         }
     }
 
+    /**
+     * Helper class to simulate a double key.
+     * This is used to cache the found paths.
+     */
     private static final class PointPair {
         private final Point a;
         private final Point b;
