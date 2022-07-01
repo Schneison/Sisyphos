@@ -2,6 +2,7 @@ import robot.Robot;
 import robot.World;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 public class Cluster implements Comparable<Cluster> {
     public static final int DISTANCE_FACTOR = Environment.CLUSTER_FACTOR;
@@ -44,6 +45,17 @@ public class Cluster implements Comparable<Cluster> {
         return Objects.hash(combination);
     }
 
+    public Type getType(){
+        return combination.getType();
+    }
+
+    /**
+     * Checks if the cluster has three unique positions.
+     */
+    public boolean isNormal(){
+        return getType() == Type.NORMAL;
+    }
+
     public Path[] getPaths() {
         return paths;
     }
@@ -53,8 +65,11 @@ public class Cluster implements Comparable<Cluster> {
     }
 
     public static int sumChunkTime(Collection<Cluster> clusters) {
+        return sumChunkTime(clusters.stream());
+    }
+
+    public static int sumChunkTime(Stream<Cluster> clusters) {
         return clusters
-                .stream()
                 .mapToInt(Cluster::getTotalTime)
                 .sum();
     }
@@ -92,7 +107,11 @@ public class Cluster implements Comparable<Cluster> {
         robot.unloadMaterials();
     }
 
-    private static class Combination {
+    public enum Type {
+        NORMAL, SOLO, DOUBLE
+    }
+
+    public static class Combination {
         public final Point origin;
         public final Point material;
         public final Point destination;
@@ -148,10 +167,20 @@ public class Cluster implements Comparable<Cluster> {
         }
 
         public Point[] asArray() {
-            if (material == null) {
-                return new Point[]{origin, destination};
+            Type type = getType();
+            return switch (type){
+                case SOLO -> new Point[]{origin};
+                case DOUBLE -> new Point[]{origin, destination};
+                case NORMAL -> new Point[]{origin, material, destination};
+            };
+        }
+
+        public Type getType() {
+            Type type = Type.NORMAL;
+            if(material == null){
+                type = origin.equals(destination) ? Type.SOLO : Type.DOUBLE;
             }
-            return new Point[]{origin, material, destination};
+            return type;
         }
     }
 }

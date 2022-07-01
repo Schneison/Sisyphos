@@ -3,7 +3,7 @@ import java.util.Set;
 /**
  * Collection of clusters.
  */
-public class Bundle implements Comparable<Bundle> {
+public class Bundle {
     private final Set<Cluster> clusters;
     /**
      * Accumulated time cost
@@ -29,16 +29,18 @@ public class Bundle implements Comparable<Bundle> {
         this.time = timeSum + timePenalty;
     }
 
+    public void print(){
+        Log.debug("------------------------------");
+        Log.debug("Bundle Time   : " + time);
+        Log.debug("Bundle Penalty: " + penalty);
+        Log.debug("------------------------------");
+    }
+
     /**
      * The accumulated time cost of all contained clusters.
      */
     public int getTime() {
         return time;
-    }
-
-    @Override
-    public int compareTo(Bundle o) {
-        return o.getTime() - getTime();
     }
 
     /**

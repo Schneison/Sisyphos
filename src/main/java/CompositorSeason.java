@@ -20,7 +20,7 @@ public class CompositorSeason {
     }
 
     public static CompositorSeason fromRange(PathStore store,
-                                             Set<Point> range,
+                                             Collection<Point> range,
                                              PathStore.Config config
     ) {
         Map<Point, Path> remaining = new HashMap<>();

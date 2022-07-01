@@ -100,11 +100,13 @@ public class ClusterOptimiser {
                 queue.reset(this.clusters);
                 factor+=1;
                continue;
-            }
+            }//-6301
+            /*Scope scope = new Scope(random);
+            scope.tryLoad(rand, (9 + 3 * factor));*/
             Cluster cluster = random.getCluster();
             Set<ClusterContainer> containers = new HashSet<>();
             Set<Cluster> currentClusters = new HashSet<>();
-            Set<Point> positions = new HashSet<>(Arrays.asList(cluster.getPoints()));
+            List<Point> positions = new ArrayList<>(Arrays.asList(cluster.getPoints()));
             if (positions.size() % 3 != 0) {
                 continue;
             }
@@ -135,7 +137,7 @@ public class ClusterOptimiser {
             pathWatch.start();
             OptimiserVariant variant = new OptimiserVariant(
                     CompositorSeason.fromRange(store, positions, config),
-                    currentClusters,
+                    positions,
                     store
             );
             pathWatch.stop();
@@ -419,11 +421,77 @@ public class ClusterOptimiser {
         }
     }
 
+    private class Scope {
+        private final ClusterContainer main;
+
+        private final Set<ClusterContainer> containers = new HashSet<>();
+        private final Set<Cluster> clusters = new HashSet<>();
+        private final List<Point> positions = new ArrayList<>();
+        private int originalTime;
+
+        public Scope(ClusterContainer main) {
+            this.main = main;
+            positions.addAll(Arrays.asList(main.getCluster().getPoints()));
+            clusters.add(main.getCluster());
+            containers.add(main);
+        }
+
+        public void tryLoad(Random rand, int maxSize){
+            List<Integer> neighbors = new ArrayList<>(main.getNeighbors());
+            //Shuffle so we don't test the same neighbors every run
+            Collections.shuffle(neighbors, rand);
+
+            // Only one "special" (cluster with less than three positions) cluster is allowed due to the construction from the genome
+            boolean special = false;
+            int size = 0;
+            for (int id : neighbors) {
+                ClusterContainer container = getContainer(id);
+                Cluster cluster = container.getCluster();
+                if(!cluster.isNormal()){
+                    if(special) {
+                        continue;
+                    }
+                    special = true;
+                }
+                size+=3;//Always add 3, so we don't go over maxSize if we have a special cluster
+                positions.addAll(Arrays.asList(cluster.getPoints()));
+                /*if(!positions.addAll(Arrays.asList(cluster.getPoints()))){
+                    // Cluster compliantly contained in other cluster, possibly 2 valued Material
+                    continue;
+                }*/
+                clusters.add(cluster);
+                containers.add(container);
+                //We don't look at 2 valued Materials or single routes
+                /*if (positions.size() % 3 != 0 || cluster.getPoints().length % 3 != 0) {
+                    return false;
+                }*/
+                // Check if scope is full
+                if (size >= maxSize) {
+                    break;
+                }
+            }
+            originalTime = Cluster.sumChunkTime(
+                    containers.stream().map(ClusterContainer::getCluster)
+            );
+        }
+    }
+
     private static class OptimiserVariant {
         private final CompositorSeason season;
         private final TimeLookup lookup;
         private final PathStore store;
         private final Point[] positionByIndex;
+
+        public OptimiserVariant(CompositorSeason season, List<Point> positions, PathStore store) {
+            this.season = season;
+            this.store = store;
+            this.lookup = store.getLookup();
+            this.positionByIndex = new Point[positions.size()];
+            int index = 0;
+            for (Point pos : positions) {
+                this.positionByIndex[index++] = pos;
+            }
+        }
 
         public OptimiserVariant(CompositorSeason season, Collection<Cluster> origin, PathStore store) {
             this.season = season;
@@ -444,39 +512,88 @@ public class ClusterOptimiser {
         public Set<Cluster> createClusters(Genome genome) {
             Set<Cluster> elements = new HashSet<>();
             int[] chromosomes = genome.getChromosomes();
-            for (int i = 0; i < genome.getChromosomes().length / 3; i++) {
-                Point a = positionByIndex[chromosomes[i * 3]];
-                Point b = positionByIndex[chromosomes[i * 3 + 1]];
-                Point c = positionByIndex[chromosomes[i * 3 + 2]];
-                elements.add(new Cluster(
-                        store.getPathToFactory(a).invert(),
-                        store.getPathToFactory(c),
-                        season.getPathTo(a, b),
-                        season.getPathTo(b, c)));
+            for (int i = 0; i < genome.getLength() / 3; i++) {
+                int index = i * 3;
+               elements.add(toCluster(genome, index));
+//                Point a = positionByIndex[chromosomes[index]];
+//                Point b = positionByIndex[chromosomes[index + 1]];
+//                Point c = positionByIndex[chromosomes[index + 2]];
+//                elements.add(new Cluster(
+//                        store.getPathToFactory(a).invert(),
+//                        store.getPathToFactory(c),
+//                        season.getPathTo(a, b),
+//                        season.getPathTo(b, c)));
             }
             return elements;
+        }
+
+        private int toTime(Genome genome, int index){
+            //Cluster with same origin and destination, no material
+            if(index + 1 == genome.getLength()) {
+                return getFactoryTime(genome, index) *2;
+            }
+            //Cluster with different origin and destination, no material
+            else if(index + 2 == genome.getLength()){
+                return getFactoryTime(genome, index) +
+                        getTime(genome, index, index + 1) +
+                        getFactoryTime(genome, index + 1);
+            }
+            return getFactoryTime(genome, index) +
+                    getTime(genome, index, index + 1) +
+                    getTime(genome, index + 1, index + 2) +
+                    getFactoryTime(genome, index + 2);
+        }
+
+        private Cluster toCluster(Genome genome, int index){
+            Point origin = getPos(genome, index);
+            Point material = getPos(genome, index + 1);
+            Point destination = getPos(genome, index + 2);
+            //Cluster with same origin and destination, no material
+            if(material == null) {
+                return new Cluster(
+                        store.getPathToFactory(origin).invert(),
+                        store.getPathToFactory(origin));
+            }
+            //Cluster with different origin and destination, no material
+            else if(destination == null){
+                return new Cluster(
+                        store.getPathToFactory(origin).invert(),
+                        store.getPathToFactory(material),
+                        season.getPathTo(origin, material));
+            }
+            return new Cluster(
+                    store.getPathToFactory(origin).invert(),
+                    store.getPathToFactory(destination),
+                    season.getPathTo(origin, material),
+                    season.getPathTo(material, destination));
+        }
+
+        private Point getPos(Genome genome, int index){
+            if(genome.getChromosomes().length <= index){
+                // If last chromosome represents a cluster which contains only 1 or 2 positions
+                return null;
+            }
+            int posIndex = genome.getChromosomes()[index];
+            return positionByIndex[posIndex];
         }
 
         /**
          * Retrieves the time from the first index to the second index.
          *
          * @param from Index of the first position
-         * @param to Index of the second position
+         * @param to   Index of the second position
          */
-        public int getTime(int from, int to, Genome genome) {
-            int a = genome.getChromosomes()[from];
-            int b = genome.getChromosomes()[to];
-            return lookup.getEdge(positionByIndex[a], positionByIndex[b]);
+        public int getTime(Genome genome, int from, int to) {
+            return lookup.getEdge(getPos(genome, from), getPos(genome, to));
         }
 
         /**
          * Retrieves the time from the index to the factory.
          *
-         * @param pos Index of the material position
+         * @param index Index of the material position
          */
-        public int getFactoryTime(int pos, Genome genome) {
-            int a = genome.getChromosomes()[pos];
-            return lookup.toFactory(positionByIndex[a]);
+        public int getFactoryTime(Genome genome, int index) {
+            return lookup.toFactory(getPos(genome, index));
         }
     }
 
@@ -487,15 +604,15 @@ public class ClusterOptimiser {
         public GeneticCluster(int amount, float elitism, OptimiserVariant variant) {
             super(amount, variant.positionByIndex.length, elitism);
             this.variant = variant;
-            this.cache = new int[(1 << 12) - 1];
+            this.cache = new int[(1 << 15) - 1];
             initPopulation();
         }
 
-        private int createIndex(Genome genome, int i) {
-            int a = genome.getChromosomes()[i];
-            int b = genome.getChromosomes()[i + 1];
-            int c = genome.getChromosomes()[i + 2];
-            return (a & 0xF) << 8 | (b & 0xF) << 4 | c & 0xF;
+        private int createIndex(int[] chromosomes, int i) {
+            int a = chromosomes[i];
+            int b = chromosomes.length > i + 1 ? chromosomes[i + 1] : 0x1F; // 31 as default unused value, so all bits are set, there should be no situation where
+            int c = chromosomes.length > i + 2 ? chromosomes[i + 2] : 0x1F;
+            return (a & 0x1F) << 10 | (b & 0x1F) << 5 | c & 0x1F;
         }
 
         @Override
@@ -503,13 +620,10 @@ public class ClusterOptimiser {
             int time = 0;
             for (int i = 0; i < genomeSize / 3; i++) {
                 int index = i * 3;
-                int z = createIndex(genome, index);
+                int z = createIndex(genome.getChromosomes(), index);
                 //TODO: Useful ?
                 if (cache[z] == 0) {
-                    cache[z] = variant.getFactoryTime(index, genome) +
-                            variant.getTime(index, index + 1, genome) +
-                            variant.getTime(index + 1, index + 2, genome) +
-                            variant.getFactoryTime(index + 2, genome);
+                    cache[z] = variant.toTime(genome, index);
                 }
                 time += cache[z];
             }

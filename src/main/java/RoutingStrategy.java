@@ -32,9 +32,9 @@ public interface RoutingStrategy {
             }
             ClusterOptimiser optimiser = new ClusterOptimiser(clusters, env);
 
-            System.out.println("Bundle Time: " + bundle.getTime());
+            bundle.print();
             bundle = new Bundle(optimiser.process(thirdConfig));
-            System.out.println("Bundle Time: " + bundle.getTime());
+            bundle.print();
             bundle.drive(env);
         }
     }
