@@ -18,11 +18,11 @@ public class Bundle {
     public Bundle(Set<Cluster> clusters) {
         this.clusters = clusters;
         int timeSum = 0;
-        int timePenalty = RobotController.processingDuration; // Last delivered package always cost 1 penalty
+        int timePenalty = Environment.processingDuration; // Last delivered package always cost 1 penalty
         for (Cluster cluster : clusters) {
             timeSum += cluster.getTotalTime();
-            if (cluster.getTotalTime() < RobotController.processingDuration) {
-                timePenalty += (RobotController.processingDuration - cluster.getTotalTime());
+            if (cluster.getTotalTime() < Environment.processingDuration) {
+                timePenalty += (Environment.processingDuration - cluster.getTotalTime());
             }
         }
         this.penalty = timePenalty;

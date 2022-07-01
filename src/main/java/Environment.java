@@ -4,8 +4,9 @@ import robot.World;
 
 public class Environment {
     public static final boolean LOGGING = true;
-    public static final boolean DEBUG = false;
+    public static final boolean DEBUG = true;
     public static final int CLUSTER_FACTOR = 31;
+    public static int processingDuration;
 
     private final World world;
     private final Robot robot;
@@ -20,6 +21,7 @@ public class Environment {
         this.factory = factory;
         this.analytics = new Analytics(world);
         this.creator = new PathCreator(this, new Point(factory.getX(), factory.getY()));
+        processingDuration = world.getN() / 2;
     }
 
     public void setupStore(PathStore.Config config){

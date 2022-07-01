@@ -31,9 +31,6 @@ public class TimeLookup {
         if (a == null || b == null) {
             throw new IllegalStateException();
         }
-        if (edges[a][b] == 0) {
-            System.out.println("Failed to find connection from {" + from + "} to {" + to + "}.");
-        }
         return edges[a][b];
     }
 

@@ -94,6 +94,11 @@ public class Path implements Comparable<Path> {
         return steps.length;
     }
 
+    @Override
+    public String toString() {
+        return "orig={"+ origin.getPoint() + "},dest={" + destination.getPoint() + "},steps=" + getStepCount();
+    }
+
     public static class Step {
         private final Point point;
         // TODO: Remove possible value null, wtf

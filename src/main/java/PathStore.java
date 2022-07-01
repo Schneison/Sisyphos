@@ -94,6 +94,10 @@ public class PathStore {
         return remainingNeighbors;
     }
 
+    public World getWorld() {
+        return world;
+    }
+
     /**
      * Returns the path from the given position to the factory.
      */

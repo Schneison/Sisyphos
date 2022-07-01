@@ -56,10 +56,6 @@ public class Cluster implements Comparable<Cluster> {
         return getType() == Type.NORMAL;
     }
 
-    public Path[] getPaths() {
-        return paths;
-    }
-
     public Point[] getPoints() {
         return combination.asArray();
     }
@@ -91,20 +87,21 @@ public class Cluster implements Comparable<Cluster> {
         combination.removeUsed(season);
     }
 
-    public long penaltyTotal;
-
     public void drive(Environment env) {
         World world = env.getWorld();
         Robot robot = env.getRobot();
-        int materials = 0;
         for (Path path : paths) {
             path.drive(robot, env.getAnalytics());
             if (path.getMaterial(world) > 0) {
-                materials += path.getMaterial(world);
                 robot.gatherMaterials();
             }
         }
         robot.unloadMaterials();
+    }
+
+    @Override
+    public String toString() {
+        return combination.toString();
     }
 
     public enum Type {

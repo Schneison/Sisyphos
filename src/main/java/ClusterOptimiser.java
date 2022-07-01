@@ -7,7 +7,6 @@ import java.util.*;
  * is used.
  */
 public class ClusterOptimiser {
-    private final Queue queue;
     private final Deque<State> dumps = new ArrayDeque<>();
     private final Map<Point, Integer> clusterByPos;
     private final ClusterContainer[] clusters;
@@ -27,7 +26,6 @@ public class ClusterOptimiser {
             }
             id[0] += 1;
         });
-        this.queue = new Queue(this);
         initNeighbors();
     }
 
@@ -94,52 +92,20 @@ public class ClusterOptimiser {
         Stopwatch clusterWatch = Stopwatch.createUnstarted();
         Log.info("Start Optimiser");
         int factor = 0;
-        o: for (int j = 0; j < 2200; j++) {
+        for (int j = 0; j < 2200; j++) {
             ClusterContainer random = this.clusters[rand.nextInt(this.clusters.length)];
-            if(random == null || j == 1198 || j == 1998){
-                queue.reset(this.clusters);
+            if(random == null || j == 1198 || j == 1798){
                 factor+=1;
-               continue;
-            }//-6301
-            /*Scope scope = new Scope(random);
-            scope.tryLoad(rand, (9 + 3 * factor));*/
-            Cluster cluster = random.getCluster();
-            Set<ClusterContainer> containers = new HashSet<>();
-            Set<Cluster> currentClusters = new HashSet<>();
-            List<Point> positions = new ArrayList<>(Arrays.asList(cluster.getPoints()));
-            if (positions.size() % 3 != 0) {
                 continue;
             }
-            currentClusters.add(cluster);
-            containers.add(random);
-            List<Integer> neighbors = new ArrayList<>(random.getNeighbors());
-            Collections.shuffle(neighbors, rand);
-            for (int id : neighbors) {
-                ClusterContainer container = getContainer(id);
-                cluster = container.getCluster();
-                if(!positions.addAll(Arrays.asList(cluster.getPoints()))){
-                    // Cluster compliantly contained in other cluster, possibly 2 valued Material
-                    continue;
-                }
-                currentClusters.add(cluster);
-                containers.add(container);
-                //We don't look at 2 valued Materials or single routes
-                if (positions.size() % 3 != 0 || cluster.getPoints().length % 3 != 0) {
-                    continue o;
-                }
-                if (positions.size() >= (12 + 3 * factor)) {
-                    break;
-                }
-            }
-            int originalTime = Cluster.sumChunkTime(currentClusters);
+            Scope scope = new Scope(random);
+            //Select neighbor clusters of the cluster to be used in this cycle
+            scope.selectNeighbors(rand, (9 + 3 * factor));
+            int originalTime = scope.getOriginalTime();//-15876
             Chunk bestChunk = null;
             int minTime = Integer.MAX_VALUE;
             pathWatch.start();
-            OptimiserVariant variant = new OptimiserVariant(
-                    CompositorSeason.fromRange(store, positions, config),
-                    positions,
-                    store
-            );
+            OptimiserVariant variant = scope.createVariant(config);
             pathWatch.stop();
             //Update Path finding time
             state.recordPath(pathWatch.toString());
@@ -168,10 +134,7 @@ public class ClusterOptimiser {
 
             //Add to current state and update queue if we changed the clusters
             if(state.add(originalTime - minTime)){
-                for (ClusterContainer container : containers) {
-                    queue.add(container.id);
-                }
-                insertClusters(containers, bestChunk);
+                scope.apply(bestChunk);
             }
 
             //Check the state all 100 iterations
@@ -386,63 +349,32 @@ public class ClusterOptimiser {
         }
     }
 
-    private static class Queue {
-        private final PriorityQueue<ClusterContainer> queue = new PriorityQueue<>();
-        private final ClusterOptimiser optimiser;
-        private final Set<Integer> next = new HashSet<>();
-
-        public Queue(ClusterOptimiser optimiser) {
-            this.optimiser = optimiser;
-            queue.addAll(List.of(optimiser.clusters));
-        }
-
-        public void add(int id){
-            next.add(id);
-        }
-
-        public ClusterContainer pop(){
-            ClusterContainer result = queue.peek();
-            while(result != null) {
-                if (!result.isInvalid()) {
-                    return queue.poll();
-                }
-                queue.poll();
-                result = queue.peek();
-            }
-            if(queue.isEmpty()){
-                queue.addAll(next.stream().map(id -> optimiser.clusters[id]).toList());
-                next.clear();
-            }
-            return queue.poll();
-        }
-
-        public void reset(ClusterContainer[] clusters) {
-            queue.addAll(Arrays.stream(clusters).toList());
-        }
-    }
-
     private class Scope {
         private final ClusterContainer main;
 
         private final Set<ClusterContainer> containers = new HashSet<>();
-        private final Set<Cluster> clusters = new HashSet<>();
         private final List<Point> positions = new ArrayList<>();
+        // Only one "special" (cluster with less than three positions) cluster is allowed due to the construction from the genome
+        private boolean special;
         private int originalTime;
 
         public Scope(ClusterContainer main) {
             this.main = main;
-            positions.addAll(Arrays.asList(main.getCluster().getPoints()));
-            clusters.add(main.getCluster());
+            Cluster cluster = main.getCluster();
+            addPositions(cluster);
             containers.add(main);
+            special = !cluster.isNormal();
         }
 
-        public void tryLoad(Random rand, int maxSize){
+        private void addPositions(Cluster cluster){
+            positions.addAll(Arrays.asList(cluster.getPoints()));
+        }
+
+        public void selectNeighbors(Random rand, int maxSize){
             List<Integer> neighbors = new ArrayList<>(main.getNeighbors());
             //Shuffle so we don't test the same neighbors every run
             Collections.shuffle(neighbors, rand);
 
-            // Only one "special" (cluster with less than three positions) cluster is allowed due to the construction from the genome
-            boolean special = false;
             int size = 0;
             for (int id : neighbors) {
                 ClusterContainer container = getContainer(id);
@@ -454,17 +386,8 @@ public class ClusterOptimiser {
                     special = true;
                 }
                 size+=3;//Always add 3, so we don't go over maxSize if we have a special cluster
-                positions.addAll(Arrays.asList(cluster.getPoints()));
-                /*if(!positions.addAll(Arrays.asList(cluster.getPoints()))){
-                    // Cluster compliantly contained in other cluster, possibly 2 valued Material
-                    continue;
-                }*/
-                clusters.add(cluster);
+                addPositions(cluster);
                 containers.add(container);
-                //We don't look at 2 valued Materials or single routes
-                /*if (positions.size() % 3 != 0 || cluster.getPoints().length % 3 != 0) {
-                    return false;
-                }*/
                 // Check if scope is full
                 if (size >= maxSize) {
                     break;
@@ -474,6 +397,22 @@ public class ClusterOptimiser {
                     containers.stream().map(ClusterContainer::getCluster)
             );
         }
+
+        public OptimiserVariant createVariant(PathStore.Config config){
+            return new OptimiserVariant(
+                    CompositorSeason.fromRange(store, positions, config),
+                    positions,
+                    store
+            );
+        }
+
+        public int getOriginalTime() {
+            return originalTime;
+        }
+
+        public void apply(Chunk bestChunk) {
+            insertClusters(containers, bestChunk);
+        }
     }
 
     private static class OptimiserVariant {
@@ -481,6 +420,8 @@ public class ClusterOptimiser {
         private final TimeLookup lookup;
         private final PathStore store;
         private final Point[] positionByIndex;
+        //Position that has to be located at the end of the genome
+        private Point significant;
 
         public OptimiserVariant(CompositorSeason season, List<Point> positions, PathStore store) {
             this.season = season;
@@ -489,21 +430,23 @@ public class ClusterOptimiser {
             this.positionByIndex = new Point[positions.size()];
             int index = 0;
             for (Point pos : positions) {
+                if(pos.getMaterials(store.getWorld()) > 1){
+                    if(significant != null){
+                        significant = null;
+                    }else{
+                        significant = pos;
+                    }
+                }
                 this.positionByIndex[index++] = pos;
             }
         }
 
-        public OptimiserVariant(CompositorSeason season, Collection<Cluster> origin, PathStore store) {
-            this.season = season;
-            this.store = store;
-            this.lookup = store.getLookup();
-            this.positionByIndex = new Point[origin.size() * 3];
-            int index = 0;
-            for (Cluster cluster : origin) {
-                for (Point pos : cluster.getPoints()) {
-                    this.positionByIndex[index++] = pos;
-                }
-            }
+        /**
+         * Amount of clusters that are contained in the given genome
+         */
+        public int getClusterCount(Genome genome){
+            // Clusters have always the size of 3, only the last cluster can be smaller, so we round to the ceiling
+            return (int)Math.ceil(genome.getLength() / 3.0f);
         }
 
         /**
@@ -511,18 +454,10 @@ public class ClusterOptimiser {
          */
         public Set<Cluster> createClusters(Genome genome) {
             Set<Cluster> elements = new HashSet<>();
-            int[] chromosomes = genome.getChromosomes();
-            for (int i = 0; i < genome.getLength() / 3; i++) {
+            //Round up
+            for (int i = 0; i <getClusterCount(genome); i++) {
                 int index = i * 3;
                elements.add(toCluster(genome, index));
-//                Point a = positionByIndex[chromosomes[index]];
-//                Point b = positionByIndex[chromosomes[index + 1]];
-//                Point c = positionByIndex[chromosomes[index + 2]];
-//                elements.add(new Cluster(
-//                        store.getPathToFactory(a).invert(),
-//                        store.getPathToFactory(c),
-//                        season.getPathTo(a, b),
-//                        season.getPathTo(b, c)));
             }
             return elements;
         }
@@ -538,6 +473,16 @@ public class ClusterOptimiser {
                         getTime(genome, index, index + 1) +
                         getFactoryTime(genome, index + 1);
             }
+            Point orPos = getPos(genome, index);
+            Point destPos = getPos(genome, index + 2);
+            Point materialPos = getPos(genome, index + 1);
+            if(materialPos == null || orPos == null || destPos == null){
+                throw new IllegalStateException();
+            }
+            if(significant != null && (significant.equals(materialPos) || significant.equals(orPos) || significant.equals(destPos))){
+                //Invalid state, because it will produce errors of the type "Tried to gather materials while having no space left!"
+                return (int)Math.pow(store.getWorld().getN(), 4);
+            }
             return getFactoryTime(genome, index) +
                     getTime(genome, index, index + 1) +
                     getTime(genome, index + 1, index + 2) +
@@ -548,6 +493,10 @@ public class ClusterOptimiser {
             Point origin = getPos(genome, index);
             Point material = getPos(genome, index + 1);
             Point destination = getPos(genome, index + 2);
+            //Should never happen
+            if(origin == null){
+                throw new IllegalStateException();
+            }
             //Cluster with same origin and destination, no material
             if(material == null) {
                 return new Cluster(
@@ -560,6 +509,14 @@ public class ClusterOptimiser {
                         store.getPathToFactory(origin).invert(),
                         store.getPathToFactory(material),
                         season.getPathTo(origin, material));
+            }
+            //Switch origin with destination if origin has more than one material, we can't define how many materials
+            // are mined at once, so we have to start with materials with low material count, so that they are mined in
+            // any case
+            if(origin.getMaterials(store.getWorld()) > 1){
+                Point a = origin;
+                origin = destination;
+                destination = a;
             }
             return new Cluster(
                     store.getPathToFactory(origin).invert(),
@@ -618,10 +575,9 @@ public class ClusterOptimiser {
         @Override
         protected float getFitness(Genome genome) {
             int time = 0;
-            for (int i = 0; i < genomeSize / 3; i++) {
+            for (int i = 0; i < variant.getClusterCount(genome); i++) {
                 int index = i * 3;
                 int z = createIndex(genome.getChromosomes(), index);
-                //TODO: Useful ?
                 if (cache[z] == 0) {
                     cache[z] = variant.toTime(genome, index);
                 }
