@@ -1,7 +1,8 @@
 import robot.Robot;
 import robot.World;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 public class Cluster implements Comparable<Cluster> {
@@ -45,14 +46,14 @@ public class Cluster implements Comparable<Cluster> {
         return Objects.hash(combination);
     }
 
-    public Type getType(){
+    public Type getType() {
         return combination.getType();
     }
 
     /**
      * Checks if the cluster has three unique positions.
      */
-    public boolean isNormal(){
+    public boolean isNormal() {
         return getType() == Type.NORMAL;
     }
 
@@ -91,7 +92,7 @@ public class Cluster implements Comparable<Cluster> {
         World world = env.getWorld();
         Robot robot = env.getRobot();
         for (Path path : paths) {
-            path.drive(robot, env.getAnalytics());
+            path.drive(robot);
             if (path.getMaterial(world) > 0) {
                 robot.gatherMaterials();
             }
@@ -165,7 +166,7 @@ public class Cluster implements Comparable<Cluster> {
 
         public Point[] asArray() {
             Type type = getType();
-            return switch (type){
+            return switch (type) {
                 case SOLO -> new Point[]{origin};
                 case DOUBLE -> new Point[]{origin, destination};
                 case NORMAL -> new Point[]{origin, material, destination};
@@ -174,7 +175,7 @@ public class Cluster implements Comparable<Cluster> {
 
         public Type getType() {
             Type type = Type.NORMAL;
-            if(material == null){
+            if (material == null) {
                 type = origin.equals(destination) ? Type.SOLO : Type.DOUBLE;
             }
             return type;

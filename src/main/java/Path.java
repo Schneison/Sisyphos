@@ -23,9 +23,9 @@ public class Path implements Comparable<Path> {
         return getTimeCost() - o.getTimeCost();
     }
 
-    public void drive(Robot robot, Analytics analytics) {
+    public void drive(Robot robot) {
         while (!atDestination(robot)) {
-            move(robot, analytics);
+            move(robot);
         }
     }
 
@@ -38,13 +38,12 @@ public class Path implements Comparable<Path> {
         return new Path(reverseSteps.toArray(new Step[0]));
     }
 
-    public void move(Robot robot, Analytics analytics) {
+    public void move(Robot robot) {
         // At destination
         if (current == steps.length) {
             return;
         }
         Step step = steps[current];
-        analytics.getCellOrCreate(step.getPoint()).onEnter(step.getPoint(), current == 0 || current == (steps.length - 1));
         current++;
         if (step.getDirection() == null) {
             return;
@@ -96,12 +95,11 @@ public class Path implements Comparable<Path> {
 
     @Override
     public String toString() {
-        return "orig={"+ origin.getPoint() + "},dest={" + destination.getPoint() + "},steps=" + getStepCount();
+        return "orig={" + origin.getPoint() + "},dest={" + destination.getPoint() + "},steps=" + getStepCount();
     }
 
     public static class Step {
         private final Point point;
-        // TODO: Remove possible value null, wtf
         private final Direction direction;
         private final int time;
 

@@ -1,6 +1,14 @@
 import robot.World;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
@@ -55,7 +63,7 @@ public class PathStore {
     /**
      * Searches the path to the neighbors of the given positions.
      *
-     * @param rang All position to find the neighbors for
+     * @param rang   All position to find the neighbors for
      * @param config Configuration of pathfinding
      */
     public Map<Point, List<Path>> searchNeighbors(Collection<Point> rang, Config config) {
@@ -69,7 +77,7 @@ public class PathStore {
             while (iterator.hasNext()) {
                 value = iterator.next();
                 Path neighbor = allPaths.get(new PointPair(pos, value));
-                if(neighbor != null) {
+                if (neighbor != null) {
                     neighborPaths.add(neighbor);
                     iterator.remove();
                 }
@@ -146,14 +154,14 @@ public class PathStore {
         /**
          * Limits the distance from the origin to nodes that will be visited by the algorithm, used to minimize the time
          */
-        public int getDistanceLimit(int n){
+        public int getDistanceLimit(int n) {
             return distanceLimit.applyAsInt(n);
         }
 
         /**
          * Limits the amount of neighbors that are cached in the current cycle of the path finding.
          */
-        public int getNeighborLimit(){
+        public int getNeighborLimit() {
             return neighbors;
         }
     }

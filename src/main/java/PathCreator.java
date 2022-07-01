@@ -1,6 +1,10 @@
 import robot.World;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.PriorityQueue;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -112,7 +116,7 @@ public class PathCreator {
      * @param defaultValue  The value that will be returned if the search ends with no valid destination
      * @return The value returned by the consumePath function if one was supplied.
      */
-    private  <T> T findPath(
+    private <T> T findPath(
             Position startPoint,
             Predicate<Point> isDestination,
             Predicate<Position> validNeighbor,
@@ -174,11 +178,10 @@ public class PathCreator {
     /**
      * Tries to find the path to as many destinations as the limit parameter allows.
      *
-     * @param startPoint Origin of the path
+     * @param startPoint    Origin of the path
      * @param isDestination Tests if the given position is a valid destination.
-     * @param limit Limits the amount of paths, stops the search if this limit is reached.
+     * @param limit         Limits the amount of paths, stops the search if this limit is reached.
      * @param distanceLimit Limits the distance the algorithm searches for possible path nodes.
-     *
      * @return A list of all found paths with a size from zero, if no paths were found, up to the limit.
      */
     public List<Path> createPaths(Position startPoint, Predicate<Point> isDestination, int limit, int distanceLimit) {
@@ -204,9 +207,8 @@ public class PathCreator {
     /**
      * Tries to find a path starting from the given origin position.
      *
-     * @param startPoint Origin of the path
+     * @param startPoint    Origin of the path
      * @param isDestination Tests if the given position is a valid destination.
-     *
      * @return The found path, {@code null} if none was found.
      */
     public Path findPath(Position startPoint, Predicate<Point> isDestination) {

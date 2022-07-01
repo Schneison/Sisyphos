@@ -1,4 +1,6 @@
-import java.util.*;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+import java.util.Random;
 import java.util.stream.IntStream;
 
 public abstract class GeneticSystem {
@@ -42,6 +44,7 @@ public abstract class GeneticSystem {
         }
 
         private static final PriorityQueue<ValueKeyPair<Entity>> bestEntities = new PriorityQueue<>(Comparator.reverseOrder());
+
         public PriorityQueue<ValueKeyPair<Entity>> calculateFitnessSum() {
             bestEntities.clear();
             fitnessSum = 0;
@@ -102,6 +105,7 @@ public abstract class GeneticSystem {
         }
 
         private static final Genome[] offsprings = new Genome[2];
+
         public void crossbreed(Entity other, Entity[] newEntities, int index, Random rand) {
             genome.crossbreed(other.getDna(), rand, offsprings);
             newEntities[index] = new Entity(offsprings[0], system, rand);

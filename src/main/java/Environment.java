@@ -3,15 +3,14 @@ import robot.Robot;
 import robot.World;
 
 public class Environment {
-    public static final boolean LOGGING = true;
-    public static final boolean DEBUG = true;
+    public static final boolean LOGGING = false;
+    public static final boolean DEBUG = false;
     public static final int CLUSTER_FACTOR = 31;
     public static int processingDuration;
 
     private final World world;
     private final Robot robot;
     private final Factory factory;
-    private final Analytics analytics;
     private final PathCreator creator;
     private PathStore store;
 
@@ -19,17 +18,12 @@ public class Environment {
         this.world = world;
         this.robot = robot;
         this.factory = factory;
-        this.analytics = new Analytics(world);
         this.creator = new PathCreator(this, new Point(factory.getX(), factory.getY()));
         processingDuration = world.getN() / 2;
     }
 
-    public void setupStore(PathStore.Config config){
+    public void setupStore(PathStore.Config config) {
         store = new PathStore(this, config);
-    }
-
-    public Analytics getAnalytics() {
-        return analytics;
     }
 
     public PathCreator getCreator() {
@@ -40,7 +34,7 @@ public class Environment {
         return store;
     }
 
-    public TimeLookup getLookup(){
+    public TimeLookup getLookup() {
         return store.getLookup();
     }
 

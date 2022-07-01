@@ -8,28 +8,17 @@ public class Genome {
         this.chromosomes = chromosomes;
     }
 
-    // DM, IVM and ISM
     public void mutate(Random rand) {
         if (rand.nextFloat() <= 0.025) {
             exchangeMutation(rand);
         }
     }
 
-    // EM - bad
     public void exchangeMutation(Random rand) {
         MathUtil.swap(chromosomes,
                 rand.nextInt(0, chromosomes.length),
                 rand.nextInt(0, chromosomes.length - 1)
         );
-    }
-
-    // ISM
-    private void insertionMutation(Random rand) {
-        int a = rand.nextInt(0, chromosomes.length);
-        int b = rand.nextInt(0, chromosomes.length - 1);
-        for (int i = a; i < b; i++) {
-            MathUtil.swap(chromosomes, i, i + 1);
-        }
     }
 
     public int getLength() {
@@ -41,9 +30,9 @@ public class Genome {
     }
 
     private static final int OFFSET = 0;
-    //TODO: replace with bit shift and bit mask
     private static final BitSet lookupA = new BitSet(16);
     private static final BitSet lookupB = new BitSet(16);
+
     public void orderedCrossover(Genome other, Random rand, Genome[] offsprings) {
         lookupA.clear();
         lookupB.clear();
@@ -87,7 +76,6 @@ public class Genome {
         offsprings[1] = new Genome(childB);
     }
 
-    // ER, OX1, POS and OX2
     public void crossbreed(Genome other, Random rand, Genome[] offsprings) {
         orderedCrossover(other, rand, offsprings);
     }

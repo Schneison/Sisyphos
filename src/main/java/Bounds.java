@@ -1,7 +1,6 @@
 import robot.World;
 
 import java.util.Collection;
-import java.util.function.Predicate;
 
 /**
  * Helper class to construct a rectangle.
@@ -15,7 +14,8 @@ public class Bounds {
     /**
      * Construct a rectangle that contains all given positions.
      * <p>
-     * @param world The world instance to determine the size of the field.
+     *
+     * @param world     The world instance to determine the size of the field.
      * @param expansion Amount by that the rectangle is expanded.
      * @param positions A collection of positions that define the rectangle
      */

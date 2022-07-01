@@ -29,7 +29,7 @@ public class Bundle {
         this.time = timeSum + timePenalty;
     }
 
-    public void print(){
+    public void print() {
         Log.debug("------------------------------");
         Log.debug("Bundle Time   : " + time);
         Log.debug("Bundle Penalty: " + penalty);
